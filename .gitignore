@@ -1,0 +1,96 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite3
+test.db
+
+# Model files (garder les .pkl mais ignorer les temporaires)
+*.pkl.tmp
+models/*.tmp
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# Personal documents (Word, PowerPoint)
+*.docx
+*.doc
+*.pptx
+~$*
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Documentation build
+docs/_build/
+site/
+
+# Build
+build/
+dist/
+
+# Virtual environments
+.venv
+venv/
+ENV/
+
+
