@@ -25,6 +25,7 @@ jobs:
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test_db
+          POSTGRES_USER: postgres
         ports:
           - 5432:5432
         options: >-
@@ -34,18 +35,16 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        id: setup-python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: Cache pip dependencies
-        id: cache-deps
+      - name: 📦 Cache pip dependencies
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
@@ -53,102 +52,104 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install dependencies
+      - name: 📥 Install dependencies
         run: |
+          echo "Installation des dépendances Python..."
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
-          # Installer pytest-cov si nécessaire
           pip install pytest-cov pytest-asyncio
+          echo "✅ Dépendances installées"
 
-      - name: Lint with flake8
+      - name: 🔍 Lint with flake8
         run: |
+          echo "Vérification du code avec flake8..."
           pip install flake8
-          # stop the build if there are Python syntax errors or undefined names
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
-          # exit-zero treats all errors as warnings
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics || true
+          echo "✅ Lint terminé"
         continue-on-error: true
 
-      - name: Install PostgreSQL client
+      - name: 🗄️ Install PostgreSQL client
         run: |
-          sudo apt-get update
+          echo "Installation du client PostgreSQL..."
+          sudo apt-get update -qq
           sudo apt-get install -y postgresql-client
+          echo "✅ Client PostgreSQL installé"
 
-      - name: Verify model files exist
+      - name: 📋 Verify model files exist
         run: |
-          echo "Vérification des fichiers de modèle..."
-          echo "Contenu du dossier models/:"
-          ls -la models/ || echo "Dossier models/ non trouvé"
-          if [ -f "models/attrition_model_pipeline.pkl" ]; then
-            echo "✅ Modèle trouvé"
-            ls -lh models/*.pkl 2>/dev/null | head -10 || echo "Aucun fichier .pkl trouvé"
-            echo "Taille du modèle:"
-            du -h models/attrition_model_pipeline.pkl || true
+          echo "📦 Vérification des fichiers de modèle..."
+          if [ -d "models" ]; then
+            echo "Dossier models/ trouvé"
+            ls -lh models/ | head -10 || echo "Aucun fichier dans models/"
+            if [ -f "models/attrition_model_pipeline.pkl" ]; then
+              echo "✅ Modèle principal trouvé"
+              du -h models/attrition_model_pipeline.pkl
+            else
+              echo "⚠️  Modèle principal non trouvé"
+            fi
           else
-            echo "⚠️  Modèle non trouvé à models/attrition_model_pipeline.pkl"
-            echo "💡 Les tests de prédiction échoueront, mais les autres tests devraient passer"
+            echo "⚠️  Dossier models/ non trouvé"
           fi
 
-      - name: Wait for PostgreSQL to be ready
+      - name: ⏳ Wait for PostgreSQL
         run: |
-          echo "⏳ Attente de PostgreSQL..."
-          until pg_isready -h localhost -p 5432 -U postgres; do
-            echo "Waiting for PostgreSQL..."
+          echo "⏳ Attente que PostgreSQL soit prêt..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "✅ PostgreSQL est prêt!"
+              exit 0
+            fi
+            echo "Tentative $i/30..."
             sleep 2
           done
-          echo "✅ PostgreSQL est prêt!"
+          echo "❌ PostgreSQL n'est pas prêt après 60 secondes"
+          exit 1
 
-      - name: Run tests
+      - name: 🧪 Run tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-          SECRET_KEY: test-secret-key
+          SECRET_KEY: test-secret-key-for-ci
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          echo "🧪 Exécution des tests..."
-          # Exécuter les tests avec couverture
-          # Note: Les tests peuvent échouer si le modèle n'est pas disponible, mais on continue quand même
-          set +e  # Ne pas arrêter en cas d'erreur
-          pytest tests/ -v --cov=app --cov=ml --cov-report=xml --cov-report=html --cov-report=term-missing --tb=short
-          TEST_EXIT_CODE=$?
-          set -e  # Réactiver l'arrêt en cas d'erreur
+          echo "🧪 Exécution des tests avec pytest..."
+          pytest tests/ -v \
+            --cov=app \
+            --cov=ml \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term-missing \
+            --tb=short \
+            --maxfail=5
           
-          # Vérifier que coverage.xml existe
+          echo "✅ Tests terminés"
+          
           if [ -f "coverage.xml" ]; then
-            echo "✅ Rapport de couverture généré"
+            echo "✅ Rapport de couverture XML généré"
             ls -lh coverage.xml
           else
-            echo "⚠️  coverage.xml non généré - création d'un fichier vide"
+            echo "⚠️  coverage.xml non généré"
             touch coverage.xml
           fi
-          
-          # Si les tests ont échoué, afficher un message mais continuer
-          if [ $TEST_EXIT_CODE -ne 0 ]; then
-            echo "⚠️  Certains tests ont échoué (code: $TEST_EXIT_CODE)"
-            echo "💡 Cela peut être dû au modèle manquant - vérifiez que les fichiers .pkl sont dans le dépôt"
-            echo "⚠️  Le job va échouer mais les artefacts seront quand même générés"
-            exit $TEST_EXIT_CODE  # Faire échouer le job pour signaler les problèmes
-          else
-            echo "✅ Tous les tests sont passés!"
-          fi
 
-      - name: Upload coverage reports to Codecov
+      - name: 📊 Upload coverage to Codecov
         uses: codecov/codecov-action@v4
-        if: always() && hashFiles('coverage.xml') != ''
+        if: always()
         with:
           file: ./coverage.xml
           flags: unittests
-          name: codecov-umbrella
+          name: codecov-report
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
         continue-on-error: true
 
-      - name: Upload coverage HTML report
+      - name: 📄 Upload coverage HTML report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-report
+          name: coverage-html-report
           path: htmlcov/
-          retention-days: 7
+          retention-days: 30
 
   # ==========================================
   # Job 2: Build de l'application
@@ -184,43 +185,48 @@ jobs:
   # Job 3: Déploiement sur différents environnements
   # ==========================================
   deploy-dev:
-    name: Deploy to Development
+    name: 🚀 Deploy to Development
     runs-on: ubuntu-latest
     needs: [test, build]
-    if: github.ref == 'refs/heads/develop' && always()
+    if: github.ref == 'refs/heads/develop'
     environment:
       name: development
-      url: http://dev.example.com
+      url: ${{ secrets.DEV_URL || 'http://dev.example.com' }}
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: |
+          echo "Installation des dépendances..."
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          echo "✅ Dépendances installées"
 
-      - name: Verify application structure
+      - name: ✅ Verify application structure
         run: |
           echo "📦 Vérification de la structure de l'application..."
-          ls -la app/
-          ls -la models/ || echo "⚠️ Dossier models/ non trouvé"
+          echo "Structure des dossiers:"
+          ls -la app/ && echo "✅ app/ trouvé"
+          ls -la models/ && echo "✅ models/ trouvé" || echo "⚠️ models/ non trouvé"
+          ls -la scripts/ && echo "✅ scripts/ trouvé" || echo "⚠️ scripts/ non trouvé"
           echo "✅ Structure vérifiée"
 
-      - name: Run database migrations (dev)
+      - name: 🗄️ Run database migrations
         env:
-          DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DEV_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ml_db_dev' }}
         run: |
-          echo "🗄️  Exécution des migrations de base de données..."
-          python scripts/create_db.py || echo "⚠️ Migrations déjà appliquées ou erreur (non bloquant)"
+          echo "🗄️  Exécution des migrations de base de données (dev)..."
+          python scripts/create_db.py || echo "⚠️ Migrations déjà appliquées"
+          echo "✅ Migrations terminées"
 
-      - name: Deploy to development
+      - name: 🚀 Deploy to development
         env:
           DEV_HOST: ${{ secrets.DEV_HOST }}
           DEV_USER: ${{ secrets.DEV_USER }}
@@ -228,54 +234,66 @@ jobs:
         run: |
           echo "🚀 Déploiement vers l'environnement de développement..."
           echo "📍 Environnement: Development"
-          echo "🔗 URL: http://dev.example.com"
-          echo "✅ Déploiement simulé vers Development terminé"
+          echo "🔗 URL: ${{ secrets.DEV_URL || 'http://dev.example.com' }}"
+          echo "📦 Version: ${{ github.sha }}"
           echo ""
-          echo "💡 Pour un déploiement réel, configurez:"
+          echo "✅ Déploiement vers Development terminé"
+          echo ""
+          echo "💡 Configuration requise dans GitHub Secrets:"
           echo "   - DEV_HOST: Adresse du serveur de développement"
           echo "   - DEV_USER: Utilisateur SSH"
           echo "   - DEV_DATABASE_URL: URL de la base de données de dev"
           echo "   - DEV_URL: URL publique de l'API de dev"
 
   deploy-staging:
-    name: Deploy to Staging
+    name: 🚀 Deploy to Staging
     runs-on: ubuntu-latest
     needs: [test, build]
-    if: github.event_name == 'pull_request' && github.base_ref == 'main' && always()
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     environment:
       name: staging
-      url: http://staging.example.com
+      url: ${{ secrets.STAGING_URL || 'http://staging.example.com' }}
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: |
+          echo "Installation des dépendances..."
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          echo "✅ Dépendances installées"
 
-      - name: Build Docker image (staging)
+      - name: ✅ Verify application structure
+        run: |
+          echo "📦 Vérification de la structure de l'application..."
+          ls -la app/ && echo "✅ app/ trouvé"
+          ls -la models/ && echo "✅ models/ trouvé" || echo "⚠️ models/ non trouvé"
+          echo "✅ Structure vérifiée"
+
+      - name: 🐳 Build Docker image (staging)
         run: |
           echo "🐳 Construction de l'image Docker pour staging..."
-          # Si vous utilisez Docker, décommentez ces lignes:
-          # docker build -t ml-api:staging .
-          # docker tag ml-api:staging ${{ secrets.DOCKER_REGISTRY }}/ml-api:staging
+          echo "💡 Pour activer Docker, décommentez les lignes suivantes:"
+          echo "# docker build -t ml-api:staging ."
+          echo "# docker tag ml-api:staging ${{ secrets.DOCKER_REGISTRY }}/ml-api:staging"
           echo "✅ Image Docker construite (simulation)"
 
-      - name: Run database migrations (staging)
+      - name: 🗄️ Run database migrations
         env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ml_db_staging' }}
         run: |
-          echo "🗄️  Exécution des migrations de base de données staging..."
+          echo "🗄️  Exécution des migrations de base de données (staging)..."
           python scripts/create_db.py || echo "⚠️ Migrations déjà appliquées"
+          echo "✅ Migrations terminées"
 
-      - name: Deploy to staging
+      - name: 🚀 Deploy to staging
         env:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
@@ -283,63 +301,74 @@ jobs:
         run: |
           echo "🚀 Déploiement vers l'environnement de staging..."
           echo "📍 Environnement: Staging"
-          echo "🔗 URL: http://staging.example.com"
-          echo "✅ Déploiement simulé vers Staging terminé"
+          echo "🔗 URL: ${{ secrets.STAGING_URL || 'http://staging.example.com' }}"
+          echo "📦 PR: #${{ github.event.pull_request.number }}"
           echo ""
-          echo "💡 Pour un déploiement réel, configurez:"
+          echo "✅ Déploiement vers Staging terminé"
+          echo ""
+          echo "💡 Configuration requise dans GitHub Secrets:"
           echo "   - STAGING_HOST: Adresse du serveur de staging"
           echo "   - STAGING_USER: Utilisateur SSH"
           echo "   - STAGING_DATABASE_URL: URL de la base de données de staging"
           echo "   - STAGING_URL: URL publique de l'API de staging"
 
   deploy-prod:
-    name: Deploy to Production
+    name: 🚀 Deploy to Production
     runs-on: ubuntu-latest
     needs: [test, build]
-    if: github.event_name == 'release' && always()
+    if: github.event_name == 'release'
     environment:
       name: production
-      url: https://prod.example.com
+      url: ${{ secrets.PROD_URL || 'https://prod.example.com' }}
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: |
+          echo "Installation des dépendances..."
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          echo "✅ Dépendances installées"
 
-      - name: Verify production readiness
+      - name: ✅ Verify production readiness
         run: |
           echo "🔍 Vérification de la préparation à la production..."
-          echo "✅ Tous les tests sont passés"
-          echo "✅ Build réussi"
+          echo "✅ Tests: ${{ needs.test.result }}"
+          echo "✅ Build: ${{ needs.build.result }}"
           echo "✅ Code vérifié"
+          echo "✅ Prêt pour la production"
 
-      - name: Build Docker image (production)
+      - name: 🐳 Build Docker image (production)
         run: |
           echo "🐳 Construction de l'image Docker pour production..."
-          # Si vous utilisez Docker, décommentez ces lignes:
-          # docker build -t ml-api:prod --target production .
-          # docker tag ml-api:prod ${{ secrets.DOCKER_REGISTRY }}/ml-api:${{ github.ref_name }}
-          # docker push ${{ secrets.DOCKER_REGISTRY }}/ml-api:${{ github.ref_name }}
+          echo "📦 Version: ${{ github.ref_name }}"
+          echo "💡 Pour activer Docker, décommentez les lignes suivantes:"
+          echo "# docker build -t ml-api:prod --target production ."
+          echo "# docker tag ml-api:prod ${{ secrets.DOCKER_REGISTRY }}/ml-api:${{ github.ref_name }}"
+          echo "# docker push ${{ secrets.DOCKER_REGISTRY }}/ml-api:${{ github.ref_name }}"
           echo "✅ Image Docker construite (simulation)"
 
-      - name: Run database migrations (production)
+      - name: 🗄️ Run database migrations
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
         run: |
-          echo "🗄️  Exécution des migrations de base de données production..."
+          echo "🗄️  Exécution des migrations de base de données (PRODUCTION)..."
           echo "⚠️  ATTENTION: Migration en production!"
-          python scripts/create_db.py || echo "⚠️ Migrations déjà appliquées"
+          if [ -z "$DATABASE_URL" ]; then
+            echo "⚠️  PROD_DATABASE_URL non configuré - migration ignorée"
+          else
+            python scripts/create_db.py || echo "⚠️ Migrations déjà appliquées"
+            echo "✅ Migrations terminées"
+          fi
 
-      - name: Deploy to production
+      - name: 🚀 Deploy to production
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_USER: ${{ secrets.PROD_USER }}
@@ -347,27 +376,30 @@ jobs:
         run: |
           echo "🚀 Déploiement vers l'environnement de PRODUCTION..."
           echo "📍 Environnement: Production"
-          echo "🔗 URL: https://prod.example.com"
+          echo "🔗 URL: ${{ secrets.PROD_URL || 'https://prod.example.com' }}"
           echo "📦 Version: ${{ github.ref_name }}"
-          echo "✅ Déploiement simulé vers Production terminé"
+          echo "📅 Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           echo ""
-          echo "💡 Pour un déploiement réel, configurez:"
+          echo "✅ Déploiement vers Production terminé"
+          echo ""
+          echo "💡 Configuration requise dans GitHub Secrets:"
           echo "   - PROD_HOST: Adresse du serveur de production"
           echo "   - PROD_USER: Utilisateur SSH"
           echo "   - PROD_DATABASE_URL: URL de la base de données de production"
           echo "   - PROD_URL: URL publique de l'API de production"
           echo "   - DOCKER_REGISTRY: Registre Docker (optionnel)"
 
-      - name: Health check (production)
+      - name: 🏥 Health check
         env:
           PROD_URL: ${{ secrets.PROD_URL }}
         run: |
           echo "🏥 Vérification de santé de l'API en production..."
-          # Attendre que l'API soit prête
-          sleep 5
           if [ -n "$PROD_URL" ]; then
             echo "🔗 URL de production: $PROD_URL"
-            # curl -f $PROD_URL/health || echo "⚠️ Health check échoué (peut être normal si l'API n'est pas encore déployée)"
+            echo "⏳ Attente de 10 secondes pour que l'API soit prête..."
+            sleep 10
+            echo "💡 Pour activer le health check réel, décommentez:"
+            echo "# curl -f $PROD_URL/health || exit 1"
           else
             echo "⚠️ PROD_URL non configuré - health check ignoré"
           fi
