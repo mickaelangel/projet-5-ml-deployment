@@ -223,7 +223,7 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     environment:
       name: development
-      url: ${{ secrets.DEV_URL || 'http://dev.example.com' }}
+      url: http://dev.example.com
 
     steps:
       - name: 📥 Checkout code
@@ -252,9 +252,11 @@ jobs:
 
       - name: 🗄️ Run database migrations
         env:
-          DATABASE_URL: ${{ secrets.DEV_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ml_db_dev' }}
+          DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
         run: |
           echo "🗄️  Exécution des migrations de base de données (dev)..."
+          DB_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/ml_db_dev}"
+          export DATABASE_URL="$DB_URL"
           python scripts/create_db.py || echo "⚠️ Migrations déjà appliquées"
           echo "✅ Migrations terminées"
 
@@ -263,10 +265,12 @@ jobs:
           DEV_HOST: ${{ secrets.DEV_HOST }}
           DEV_USER: ${{ secrets.DEV_USER }}
           DEV_DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+          DEV_URL: ${{ secrets.DEV_URL }}
         run: |
           echo "🚀 Déploiement vers l'environnement de développement..."
           echo "📍 Environnement: Development"
-          echo "🔗 URL: ${{ secrets.DEV_URL || 'http://dev.example.com' }}"
+          DEV_URL_VALUE="${DEV_URL:-http://dev.example.com}"
+          echo "🔗 URL: $DEV_URL_VALUE"
           echo "📦 Version: ${{ github.sha }}"
           echo ""
           echo "✅ Déploiement vers Development terminé"
@@ -284,7 +288,7 @@ jobs:
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     environment:
       name: staging
-      url: ${{ secrets.STAGING_URL || 'http://staging.example.com' }}
+      url: http://staging.example.com
 
     steps:
       - name: 📥 Checkout code
@@ -319,9 +323,11 @@ jobs:
 
       - name: 🗄️ Run database migrations
         env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ml_db_staging' }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: |
           echo "🗄️  Exécution des migrations de base de données (staging)..."
+          DB_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/ml_db_staging}"
+          export DATABASE_URL="$DB_URL"
           python scripts/create_db.py || echo "⚠️ Migrations déjà appliquées"
           echo "✅ Migrations terminées"
 
@@ -330,10 +336,12 @@ jobs:
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
           STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_URL: ${{ secrets.STAGING_URL }}
         run: |
           echo "🚀 Déploiement vers l'environnement de staging..."
           echo "📍 Environnement: Staging"
-          echo "🔗 URL: ${{ secrets.STAGING_URL || 'http://staging.example.com' }}"
+          STAGING_URL_VALUE="${STAGING_URL:-http://staging.example.com}"
+          echo "🔗 URL: $STAGING_URL_VALUE"
           echo "📦 PR: #${{ github.event.pull_request.number }}"
           echo ""
           echo "✅ Déploiement vers Staging terminé"
@@ -351,7 +359,7 @@ jobs:
     if: github.event_name == 'release'
     environment:
       name: production
-      url: ${{ secrets.PROD_URL || 'https://prod.example.com' }}
+      url: https://prod.example.com
 
     steps:
       - name: 📥 Checkout code
@@ -405,10 +413,12 @@ jobs:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_USER: ${{ secrets.PROD_USER }}
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          PROD_URL: ${{ secrets.PROD_URL }}
         run: |
           echo "🚀 Déploiement vers l'environnement de PRODUCTION..."
           echo "📍 Environnement: Production"
-          echo "🔗 URL: ${{ secrets.PROD_URL || 'https://prod.example.com' }}"
+          PROD_URL_VALUE="${PROD_URL:-https://prod.example.com}"
+          echo "🔗 URL: $PROD_URL_VALUE"
           echo "📦 Version: ${{ github.ref_name }}"
           echo "📅 Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           echo ""
@@ -426,12 +436,13 @@ jobs:
           PROD_URL: ${{ secrets.PROD_URL }}
         run: |
           echo "🏥 Vérification de santé de l'API en production..."
+          PROD_URL_VALUE="${PROD_URL:-https://prod.example.com}"
           if [ -n "$PROD_URL" ]; then
-            echo "🔗 URL de production: $PROD_URL"
+            echo "🔗 URL de production: $PROD_URL_VALUE"
             echo "⏳ Attente de 10 secondes pour que l'API soit prête..."
             sleep 10
             echo "💡 Pour activer le health check réel, décommentez:"
-            echo "# curl -f $PROD_URL/health || exit 1"
+            echo "# curl -f $PROD_URL_VALUE/health || exit 1"
           else
             echo "⚠️ PROD_URL non configuré - health check ignoré"
           fi
