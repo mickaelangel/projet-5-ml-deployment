@@ -247,3 +247,6 @@ Les tests sont exécutés automatiquement :
 
 Voir [CI_CD.md](./CI_CD.md) pour plus de détails.
 
+
+
+

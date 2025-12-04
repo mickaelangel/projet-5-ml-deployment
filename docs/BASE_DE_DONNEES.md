@@ -239,3 +239,6 @@ Crée toutes les tables :
 python scripts/create_db.py
 ```
 
+
+
+

@@ -5,10 +5,14 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    """Client de test pour l'API sans base de données"""
+    return TestClient(app)
 
 
-def test_health_endpoint():
+def test_health_endpoint(client):
     """Test du endpoint de health check"""
     response = client.get("/health")
     assert response.status_code == 200

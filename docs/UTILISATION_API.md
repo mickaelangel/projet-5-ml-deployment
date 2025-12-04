@@ -282,3 +282,6 @@ En cas d'erreur de validation, l'API retourne un `400 Bad Request` avec les dét
 - Support du batch processing
 - Historique paginé (limit par défaut: 100)
 
+
+
+

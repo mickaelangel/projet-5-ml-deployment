@@ -116,3 +116,6 @@ FROM predictions;
 - Les données sensibles ne sont pas stockées en clair
 - Les connexions utilisent des variables d'environnement pour les secrets
 
+
+
+

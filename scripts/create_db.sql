@@ -43,3 +43,6 @@ COMMENT ON COLUMN predictions.input_data IS 'Données d''entrée au format JSON'
 COMMENT ON COLUMN predictions.prediction IS '0 = Pas d''attrition, 1 = Attrition';
 COMMENT ON COLUMN predictions.probability IS 'Probabilité d''attrition (0-1)';
 
+
+
+

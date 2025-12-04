@@ -192,3 +192,6 @@ Le pipeline peut envoyer des notifications :
 - [ ] Monitoring et alertes
 - [ ] Documentation automatique
 
+
+
+
