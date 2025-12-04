@@ -1,6 +1,7 @@
 """
 Configuration globale pour les tests pytest
 """
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -10,12 +11,18 @@ from app.main import app
 from app.models.database import Base, get_db
 from app.core.config import Settings
 
-# Base de données de test (SQLite en mémoire)
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+# Base de données de test : PostgreSQL en CI/CD, SQLite en local
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+if DATABASE_URL.startswith("postgresql"):
+    # PostgreSQL (pour CI/CD)
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+else:
+    # SQLite (pour tests locaux)
+    engine = create_engine(
+        DATABASE_URL, connect_args={"check_same_thread": False}
+    )
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
