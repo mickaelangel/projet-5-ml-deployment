@@ -84,6 +84,12 @@ desktop.ini
 docs/_build/
 site/
 
+# Documentation temporaire/internale
+docs/TESTS_A_FAIRE.md
+RESUME_COMPLETION_PROJET.md
+LIVRABLES.md
+# CHECKLIST_LIVRABLES.md peut être gardé comme référence
+
 # Build
 build/
 dist/

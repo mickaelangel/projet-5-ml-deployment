@@ -46,3 +46,4 @@ COMMENT ON COLUMN predictions.probability IS 'Probabilité d''attrition (0-1)';
 
 
 
+
