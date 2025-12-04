@@ -125,3 +125,15 @@ def test_prediction_repr(db):
     assert "Prediction" in repr_str
     assert "1" in repr_str  # employee_id ou prediction
 
+
+def test_create_tables():
+    """Test de la fonction create_tables"""
+    from app.models.database import create_tables
+    from unittest.mock import patch
+    
+    with patch('app.models.database.Base.metadata.create_all') as mock_create:
+        with patch('builtins.print'):
+            create_tables()
+            # Vérifier que create_all a été appelé
+            mock_create.assert_called_once()
+

@@ -134,3 +134,25 @@ def test_predict_error_handling():
     with pytest.raises(ValueError, match="Erreur lors de la prédiction"):
         loader.predict(data)
 
+
+def test_load_with_exception():
+    """Test de load() quand une exception est levée (lignes 75-77)"""
+    loader = ModelLoader()
+    
+    # Simuler une exception lors du chargement du modèle
+    with patch('joblib.load', side_effect=Exception("Erreur de chargement")):
+        with patch('builtins.print'):
+            result = loader.load()
+            assert result is False
+            assert loader.model is None
+
+
+def test_load_with_file_not_found():
+    """Test de load() quand les fichiers n'existent pas"""
+    loader = ModelLoader()
+    loader.base_dir = Path("/nonexistent/path")
+    
+    with patch('builtins.print'):
+        result = loader.load()
+        assert result is False
+

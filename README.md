@@ -227,6 +227,60 @@ Voir la documentation complète dans :
 - `scripts/create_db.sql` - Création des tables (SQL pur)
 - `scripts/seed_data.py` - Insertion de données d'exemple
 
+### Processus de stockage et de gestion des données
+
+#### Logging automatique des interactions
+
+Toutes les interactions avec le modèle ML sont **automatiquement enregistrées** dans la base de données :
+
+1. **Lors d'une prédiction** :
+   - Les **inputs** (données d'entrée) sont stockés dans `input_data` (format JSON)
+   - Les **outputs** (prédiction, probabilité) sont stockés
+   - Les **métadonnées** (timestamp, version du modèle) sont enregistrées
+
+2. **Traçabilité complète** :
+   - Chaque prédiction possède un ID unique
+   - Possibilité de filtrer par `employee_id`
+   - Historique complet accessible via l'endpoint `/predict/history`
+
+#### Exemple de requête pour analyse
+
+```sql
+-- Taux d'attrition global
+SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN prediction = 1 THEN 1 ELSE 0 END) as attrition_count,
+    ROUND(100.0 * SUM(CASE WHEN prediction = 1 THEN 1 ELSE 0 END) / COUNT(*), 2) as taux_attrition
+FROM predictions;
+
+-- Analyse par département (si présent dans input_data)
+SELECT 
+    input_data->>'department' as department,
+    COUNT(*) as total,
+    AVG(probability) as proba_moyenne
+FROM predictions
+WHERE input_data->>'department' IS NOT NULL
+GROUP BY department;
+```
+
+#### Besoins analytiques / Tableau de bord
+
+La base de données permet de réaliser :
+
+- **Tableaux de bord** : Analyse des tendances d'attrition
+- **Reporting** : Statistiques par employé, département, période
+- **Audit** : Traçabilité complète de toutes les prédictions
+- **Performance du modèle** : Suivi des prédictions dans le temps
+- **Données d'entraînement** : Collecte de nouvelles données pour améliorer le modèle
+
+Les données sont structurées pour permettre :
+- Analyse temporelle (via `created_at`)
+- Analyse par employé (via `employee_id`)
+- Analyse des patterns (via `input_data` JSON)
+- Calcul de métriques de performance
+
+Voir `docs/DATABASE_SCHEMA.md` pour plus d'exemples de requêtes SQL.
+
 ## 🔐 Authentification et Sécurisation
 
 ### Méthodes d'authentification
