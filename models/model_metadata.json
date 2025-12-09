@@ -1,0 +1,20 @@
+{
+  "pipeline_name": "final_lr_pipeline",
+  "model_type": "Pipeline",
+  "has_smote": true,
+  "feature_count_original": 34,
+  "seuil_optimal": 0.72,
+  "training_metrics": {
+    "train_accuracy": 0.8069727891156463,
+    "test_accuracy": 0.7721088435374149,
+    "test_precision": 0.3717948717948718,
+    "test_recall": 0.6170212765957447,
+    "test_f1": 0.464,
+    "test_roc_auc": 0.8108364200189507,
+    "test_average_precision": 0.5349084851402837,
+    "cv_accuracy_mean": 0.7814316624594302,
+    "cv_precision_mean": 0.40281690288055516,
+    "cv_recall_mean": 0.7,
+    "cv_f1_mean": 0.5086734281611636
+  }
+}
